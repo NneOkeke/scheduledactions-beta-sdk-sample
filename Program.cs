@@ -14,7 +14,7 @@ namespace ComputeScheduleSampleProject
         public static async Task Main(string[] args)
         {
             // Setup
-            const string subId = "afe495ca-b99a-4e36-86c8-9e0e41697f1c";
+            const string subId = "d93f78f2-e878-40c2-9d5d-dcfdbb8042a0";
             const int retryCount = 3;
             const int retryWindowInMinutes = 60;
             const int operationTimeoutInMinutes = 3;
@@ -39,7 +39,7 @@ namespace ComputeScheduleSampleProject
 
         private static async Task ScheduledActions_ExecuteTypeOperation_ValidationFailed_NoResourceProvided(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, int operationTimeoutInMinutes)
         {
-            const string location = "eastasia";
+            const string location = "useast2euap";
 
             // List of virtual machine resource identifiers to perform submit/execute type operations on
             var resources = new UserRequestResources([]);
@@ -64,16 +64,16 @@ namespace ComputeScheduleSampleProject
             }
         }
 
-        private static async Task ScheduledActions_ExecuteTypeOperation_HappyPath(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, int operationTimeoutInMinutes)
+        private static async Task ScheduledActions_ExecuteTypeOperation_HappyPath(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, int operationTimeoutInMinutes, string subId)
         {
             const string location = "eastasia";
 
-            // List of virtual machine resource identifiers to perform submit/execute type operations on, in this case, we are using dummy VMs
+            // List of virtual machine resource identifiers to perform submit/execute type operations on, in this case, we are using dummy VMs. Virtual Machines must all be under the same subscriptionid
             var resourceIds = new List<ResourceIdentifier>()
             {
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-600"),
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-611"),
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-612"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-600"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-611"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-612"),
             };
             var resources = new UserRequestResources(resourceIds);
 
@@ -97,18 +97,18 @@ namespace ComputeScheduleSampleProject
             }
         }
 
-        private static async Task ScheduledActions_SubmitTypeOperation_HappyPath(ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, int operationTimeoutInMinutes)
+        private static async Task ScheduledActions_SubmitTypeOperation_HappyPath(ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, int operationTimeoutInMinutes, string subId)
         {
             const string location = "eastasia";
             var timeNow = DateTime.UtcNow;
             var scheduleTime = timeNow.AddHours(10);
 
-            // List of virtual machine resource identifiers to perform submit/execute type operations on, in this case, we are using dummy VMs
+            // List of virtual machine resource identifiers to perform submit/execute type operations on, in this case, we are using dummy VMs. Virtual Machines must all be under the same subscriptionid
             var resourceIds = new List<ResourceIdentifier>()
             {
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-600"),
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-611"),
-                new("/subscriptions/afe495ca-b99a-4e36-86c8-9e0e41697f1c/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-612"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-600"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-611"),
+                new($"/subscriptions/{subId}/resourceGroups/ScheduledActions_Baseline_EastAsia/providers/Microsoft.Compute/virtualMachines/dummy-vm-612"),
             };
             var resources = new UserRequestResources(resourceIds);
 

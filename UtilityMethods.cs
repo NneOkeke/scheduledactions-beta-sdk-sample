@@ -39,7 +39,7 @@ namespace ComputeScheduleSampleProject
 
             foreach (var operationResult in response.Results)
             {
-                // When ResourceOperationResult.ErrorCode is not null, it means the operation was never created in ScheduledActions due to an error in the Azure stack, this failure will not cancel the submit/execute request for other operations in the batch
+                // When ResourceOperationResult.ErrorCode is not null, it means the operation was never created in Scheduledactions due to an error in the Azure stack, this failure will not cancel the submit/execute request for other operations in the batch
                 if (operationResult.ErrorCode != null)
                 {
                     completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
@@ -51,6 +51,12 @@ namespace ComputeScheduleSampleProject
                     {
                         completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
                         Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State}");
+
+                        // When ResourceOperationResult.Operation.ResourceOperationError.ErrorCode is not null, it means the operation encountered an error while being processed in Scheduledactions.
+                        if (operationResult.Operation.ResourceOperationError.ErrorCode != null)
+                        {
+                            Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State} and errorCode: {operationResult.Operation.ResourceOperationError.ErrorCode}");
+                        }
                     }
                 }
             }

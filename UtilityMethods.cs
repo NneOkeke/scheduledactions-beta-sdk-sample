@@ -9,6 +9,7 @@ namespace ComputeScheduleSampleProject
     {
         private static readonly int PollintIntervalUpperBoundInSeconds = 1;
         private static readonly int PollintIntervalLowerBoundInSeconds = 16;
+        private static readonly int InitialWaitTimeBeforePollingInMilliseconds = 10000;
 
 
         public static SubscriptionResource GetSubscriptionResource(ArmClient client, string subscriptionId)
@@ -98,8 +99,8 @@ namespace ComputeScheduleSampleProject
         {
             Random random = new();
 
-            // Waiting for ~30 seconds before starting the polling because p50 for virtual machine operations is around 30 seconds
-            await Task.Delay(30000);
+            // This value can be set to 30s since p50 for virtual machine operations in Azure is around 30 seconds
+            await Task.Delay(InitialWaitTimeBeforePollingInMilliseconds);
 
             try
             {

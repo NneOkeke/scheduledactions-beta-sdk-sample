@@ -52,7 +52,7 @@ namespace ComputeScheduleSampleProject
                         completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
                         Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State}");
 
-                        // When ResourceOperationResult.Operation.ResourceOperationError.ErrorCode is not null, it means the operation encountered an error while being processed in Scheduledactions.
+                        // When ResourceOperationResult.Operation.ResourceOperationError.ErrorCode is not null, it means the operation encountered an error while being processed in Scheduledactions eg OperationConflict, VmNotFound etc.
                         if (operationResult.Operation.ResourceOperationError.ErrorCode != null)
                         {
                             Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State} and errorCode: {operationResult.Operation.ResourceOperationError.ErrorCode}");

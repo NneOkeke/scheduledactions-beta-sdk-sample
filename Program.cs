@@ -2,8 +2,6 @@
 using Azure.Identity;
 using Azure.ResourceManager;
 using Azure.ResourceManager.ComputeSchedule.Models;
-using Polly;
-using Polly.Contrib.WaitAndRetry;
 
 namespace ComputeScheduleSampleProject
 {
@@ -53,63 +51,18 @@ namespace ComputeScheduleSampleProject
                 var executeStartRequest = new ExecuteStartContent(executionParams, resources, Guid.NewGuid().ToString());
                 var result = await ScheduledActionsOperations.TestExecuteStartAsync(location, executeStartRequest, subscriptionResource);
 
-                GetOperationStatusResult getOperationStatus = await PollOperationStatus(resourceIds.Count, completedOperations).ExecuteAsync(async () =>
-                {
-                    // OperationIds: Each virtual machine operation is assigned a unique operationId that can be used for tracking the status of the operation, canceling the operation, or getting the errors that might have existed during the lifetime of the operation
-                    var operationIdsFromScheduledActionsOperation = result.Results.Select(result => result.Operation?.OperationId).Where(operationId => !string.IsNullOrEmpty(operationId)).ToHashSet();
+                using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
+                var operationIds = result.Results.Select(result => result.Operation?.OperationId).Where(operationId => !string.IsNullOrEmpty(operationId)).ToHashSet();
 
-                    // PendingOperationIds: OperationIds for operations that are not yet in a terminal state, that is, operations that are not yet in Succeeded, Failed, or Cancelled state
-                    var pendingOperationIds = ExcludeCompletedOperations(completedOperations, operationIdsFromScheduledActionsOperation);
+                completedOperations.Clear();
+                await UtilityMethods.PollOperationStatus(cts, operationIds, completedOperations, location, subscriptionResource);
 
-                    var getOpsStatusRequest = new GetOperationStatusContent(pendingOperationIds, Guid.NewGuid().ToString());
-
-                    return await ScheduledActionsOperations.TestGetOpsStatusAsync(location, getOpsStatusRequest, subscriptionResource);
-                });
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Request failed with ErrorCode:{ex} and ErrorMessage: {ex.Message}");
                 throw;
             }
-        }
-
-        /// <summary>
-        /// add more documentation here
-        /// </summary>
-        /// <param name="completedOps"> Dictionary of completed operations, that is, operations where state is either Succeeded, Failed, Cancelled </param>
-        /// <param name="allOps"></param>
-        /// <returns></returns>
-        private static HashSet<string?> ExcludeCompletedOperations(Dictionary<string, ResourceOperationDetails> completedOps, HashSet<string?> allOps)
-        {
-            var originalOps = new HashSet<string?>(allOps);
-
-            foreach (var op in allOps)
-            {
-                if (op != null && completedOps.ContainsKey(op))
-                {
-                    originalOps.Remove(op);
-                }
-            }
-            Console.WriteLine(string.Join(", ", originalOps));
-            return originalOps;
-        }
-
-        /// <summary>
-        /// Add documentation here for what this method does
-        /// </summary>
-        /// <param name="vmCount"></param>
-        /// <param name="completedOps"></param>
-        /// <returns></returns>
-        private static Polly.Retry.AsyncRetryPolicy<GetOperationStatusResult> PollOperationStatus(int vmCount, Dictionary<string, ResourceOperationDetails> completedOps)
-        {
-            int pollyRetryCount = 5;
-            var maxDelay = TimeSpan.FromSeconds(20);
-
-            IEnumerable<TimeSpan> delay = Backoff.ExponentialBackoff(initialDelay: TimeSpan.FromSeconds(5), retryCount: pollyRetryCount).Select(s => TimeSpan.FromTicks(Math.Min(s.Ticks, maxDelay.Ticks)));
-
-            return Policy
-                .HandleResult<GetOperationStatusResult>(r => UtilityMethods.ShouldRetryPolling(r, vmCount, completedOps).GetAwaiter().GetResult())
-                .WaitAndRetryAsync(delay);
         }
     }
 }

@@ -28,27 +28,24 @@ namespace ComputeScheduleSampleProject
         /// <param name="totalVmsCount">Total number of virtual machines in the initial Start/Hibernate/Deallocate operation </param>
         /// <param name="completedOps"> Dictionary of completed operations, that is, operations where state is either Succeeded, Failed, Cancelled </param>
         /// <returns></returns>
-        public static Task<bool> ShouldRetryPolling(GetOperationStatusResult response, int totalVmsCount, Dictionary<string, ResourceOperationDetails> completedOps)
+        public static bool ShouldRetryPolling(GetOperationStatusResult response, int totalVmsCount, Dictionary<string, ResourceOperationDetails> completedOps)
         {
             var shouldRetry = true;
-            completedOps.Clear();
 
-            IReadOnlyList<ResourceOperationResult> results = response.Results;
-
-            foreach (ResourceOperationResult item in results)
+            foreach (var operationResult in response.Results)
             {
-                // what does this mean?
-                if (item.ErrorCode != null)
+                // what does this mean
+                if (operationResult.ErrorCode != null)
                 {
-                    completedOps.Add(item.Operation.OperationId, item.Operation);
-                    Console.WriteLine($"Operation {item.Operation.OperationId} failed with error code {item.Operation.ResourceOperationError.ErrorCode}");
+                    completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
+                    Console.WriteLine($"Operation {operationResult.Operation.OperationId} failed with error code {operationResult.Operation.ResourceOperationError.ErrorCode}");
                 }
                 else
                 {
-                    if (UtilityMethods.IsOperationStateComplete(item.Operation.State))
+                    if (IsOperationStateComplete(operationResult.Operation.State))
                     {
-                        completedOps.Add(item.Operation.OperationId, item.Operation);
-                        Console.WriteLine($"Operation {item.Operation.OperationId} completed with state {item.Operation.State}");
+                        completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
+                        Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State}");
                     }
                 }
             }
@@ -57,7 +54,79 @@ namespace ComputeScheduleSampleProject
             {
                 shouldRetry = false;
             }
-            return Task.FromResult(shouldRetry);
+            return shouldRetry;
+        }
+
+
+        /// <summary>
+        /// Removes the operations that have completed from the list of operations to poll
+        /// </summary>
+        /// <param name="completedOps"> Dictionary of completed operations, that is, operations where state is either Succeeded, Failed, Cancelled </param>
+        /// <param name="allOps"></param>
+        /// <returns></returns>
+        private static HashSet<string?> ExcludeCompletedOperations(Dictionary<string, ResourceOperationDetails> completedOps, HashSet<string?> allOps)
+        {
+            var originalOps = new HashSet<string?>(allOps);
+
+            foreach (var op in allOps)
+            {
+                if (op != null && completedOps.ContainsKey(op))
+                {
+                    originalOps.Remove(op);
+                }
+            }
+            Console.WriteLine(string.Join(", ", originalOps));
+            return originalOps;
+        }
+
+
+        /// <summary>
+        /// Polls the operation status for the operations that are in not yet in completed state
+        /// </summary>
+        /// <param name="cts"></param>
+        /// <param name="opIdsFromOperationReq"> OperationIds from submit/execute type operations </param>
+        /// <param name="completedOps"> OperationIds of completed operations </param>
+        /// <param name="location"> Location of the virtual machines from submit/execute type operations </param>
+        /// <param name="resource"> ARM subscription resource </param>
+        /// <returns></returns>
+
+        public static async Task PollOperationStatus(CancellationTokenSource cts, HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
+        {
+            Random random = new();
+
+            // Waiting for ~30 seconds before starting the polling because p50 for virtual machine operations is around 30 seconds
+            await Task.Delay(30000);
+
+            try
+            {
+                GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
+                var response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, getOpsStatusRequest, resource);
+
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    int pollingIntervalInSeconds = random.Next(1, 16);
+
+                    if (!ShouldRetryPolling(response, opIdsFromOperationReq.Count, completedOps))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        var excludedOps = ExcludeCompletedOperations(completedOps, opIdsFromOperationReq);
+                        GetOperationStatusContent pendingOpIds = new(excludedOps, Guid.NewGuid().ToString());
+                        response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, pendingOpIds, resource);
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(pollingIntervalInSeconds), cts.Token);
+                }
+
+                cts.Token.ThrowIfCancellationRequested();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Request failed with ErrorCode:{ex} and ErrorMessage: {ex.Message}");
+                throw;
+            }
         }
     }
 }

@@ -7,6 +7,10 @@ namespace ComputeScheduleSampleProject
 {
     public static class UtilityMethods
     {
+        private static readonly int PollintIntervalUpperBoundInSeconds = 1;
+        private static readonly int PollintIntervalLowerBoundInSeconds = 16;
+
+
         public static SubscriptionResource GetSubscriptionResource(ArmClient client, string subscriptionId)
         {
             ResourceIdentifier subscriptionResourceId = SubscriptionResource.CreateResourceIdentifier(subscriptionId);
@@ -34,7 +38,7 @@ namespace ComputeScheduleSampleProject
 
             foreach (var operationResult in response.Results)
             {
-                // what does this mean
+                // When ResourceOperationResult.ErrorCode is not null, it means the operation was never created in ScheduledActions due to an error in the Azure stack, this failure will not cancel the submit/execute request for other operations in the batch
                 if (operationResult.ErrorCode != null)
                 {
                     completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
@@ -99,12 +103,10 @@ namespace ComputeScheduleSampleProject
 
             try
             {
-                GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
-                var response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, getOpsStatusRequest, resource);
-
                 while (!cts.Token.IsCancellationRequested)
                 {
-                    int pollingIntervalInSeconds = random.Next(1, 16);
+                    GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
+                    var response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, getOpsStatusRequest, resource);
 
                     if (!ShouldRetryPolling(response, opIdsFromOperationReq.Count, completedOps))
                     {
@@ -117,10 +119,9 @@ namespace ComputeScheduleSampleProject
                         response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, pendingOpIds, resource);
                     }
 
+                    int pollingIntervalInSeconds = random.Next(PollintIntervalLowerBoundInSeconds, PollintIntervalLowerBoundInSeconds);
                     await Task.Delay(TimeSpan.FromSeconds(pollingIntervalInSeconds), cts.Token);
                 }
-
-                cts.Token.ThrowIfCancellationRequested();
             }
             catch (Exception ex)
             {

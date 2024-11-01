@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using Azure.ResourceManager;
+using Azure.ResourceManager.ComputeSchedule;
 using Azure.ResourceManager.ComputeSchedule.Models;
 using Azure.ResourceManager.Resources;
 
@@ -7,9 +8,9 @@ namespace ComputeScheduleSampleProject
 {
     public static class UtilityMethods
     {
-        private static readonly int PollintIntervalUpperBoundInSeconds = 1;
-        private static readonly int PollintIntervalLowerBoundInSeconds = 16;
+        private static readonly int PollintIntervalInSeconds = 15;
         private static readonly int InitialWaitTimeBeforePollingInMilliseconds = 10000;
+        private static readonly int OperationTimeoutInMinutes = 3;
 
 
         public static SubscriptionResource GetSubscriptionResource(ArmClient client, string subscriptionId)
@@ -27,7 +28,7 @@ namespace ComputeScheduleSampleProject
         }
 
         /// <summary>
-        /// Determine if polling should continue based on the response from GetOperationsRequest
+        /// Determine if polling for operation status should continue based on the response from GetOperationsRequest
         /// </summary>
         /// <param name="response"> Response from GetOperationsRequest that is used to determine if polling should continue </param>
         /// <param name="totalVmsCount">Total number of virtual machines in the initial Start/Hibernate/Deallocate operation </param>
@@ -36,28 +37,22 @@ namespace ComputeScheduleSampleProject
         public static bool ShouldRetryPolling(GetOperationStatusResult response, int totalVmsCount, Dictionary<string, ResourceOperationDetails> completedOps)
         {
             var shouldRetry = true;
-
             foreach (var operationResult in response.Results)
             {
-                // When ResourceOperationResult.ErrorCode is not null, it means the operation was never created in Scheduledactions due to an error in the Azure stack, this failure will not cancel the submit/execute request for other operations in the batch
-                if (operationResult.ErrorCode != null)
-                {
-                    completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
-                    Console.WriteLine($"Operation {operationResult.Operation.OperationId} failed with the following error: errorCode: {operationResult.Operation.ResourceOperationError.ErrorCode}, errorDetails: {operationResult.Operation.ResourceOperationError.ErrorDetails}");
-                }
-                else
-                {
-                    if (IsOperationStateComplete(operationResult.Operation.State))
-                    {
-                        completedOps.TryAdd(operationResult.Operation.OperationId, operationResult.Operation);
-                        Console.WriteLine($"Operation {operationResult.Operation.OperationId} completed with state {operationResult.Operation.State}");
+                var operation = operationResult.Operation;
+                var operationId = operation.OperationId;
+                var operationState = operation.State;
+                var operationError = operation.ResourceOperationError;
 
-                        // When ResourceOperationResult.Operation.ResourceOperationError.ErrorCode is not null, it means the operation encountered an error while being processed in Scheduledactions eg OperationConflict, VmNotFound etc.
-                        if (operationResult.Operation.ResourceOperationError.ErrorCode != null)
-                        {
-                            Console.WriteLine($"Operation {operationResult.Operation.OperationId} encountered the following error: errorCode {operationResult.Operation.ResourceOperationError.ErrorCode}, errorDetails: {operationResult.Operation.ResourceOperationError.ErrorDetails}");
-                        }
-                    }
+                if (IsOperationStateComplete(operationState))
+                {
+                    completedOps.TryAdd(operationId, operation);
+                    Console.WriteLine($"Operation {operationId} completed with state {operationState}");
+                }
+
+                if (operationError.ErrorCode != null)
+                {
+                    Console.WriteLine($"Operation {operationId} encountered the following error: errorCode {operationError.ErrorCode}, errorDetails: {operationError.ErrorDetails}");
                 }
             }
 
@@ -95,46 +90,68 @@ namespace ComputeScheduleSampleProject
         /// Polls the operation status for the operations that are in not yet in completed state
         /// </summary>
         /// <param name="cts"></param>
-        /// <param name="opIdsFromOperationReq"> OperationIds from submit/execute type operations </param>
+        /// <param name="opIdsFromOperationReq"> OperationIds from execute type operations </param>
         /// <param name="completedOps"> OperationIds of completed operations </param>
-        /// <param name="location"> Location of the virtual machines from submit/execute type operations </param>
+        /// <param name="location"> Location of the virtual machines from execute type operations </param>
         /// <param name="resource"> ARM subscription resource </param>
         /// <returns></returns>
 
-        public static async Task PollOperationStatus(CancellationTokenSource cts, HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
-        {
-            Random random = new();
 
+        // make this a task that returns the completed ops instead of the Task obj
+        public static async Task PollOperationStatus(HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
+        {
             // This value can be set to 30s since p50 for virtual machine operations in Azure is around 30 seconds
             await Task.Delay(InitialWaitTimeBeforePollingInMilliseconds);
 
-            try
+            GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
+            GetOperationStatusResult? response = await resource.GetVirtualMachineOperationStatusAsync(location, getOpsStatusRequest);
+
+            // Cancellation token source is used in this case to cancel the polling after a certain time
+            using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInMinutes));
+            while (!cts.Token.IsCancellationRequested)
             {
-                while (!cts.Token.IsCancellationRequested)
+                // get successful operations
+
+                // get failed operations
+
+                // if completedops count != totalvmcount, retry the ones that the states are not terminal, because we still have unfinished ops
+
+                // update the opids in response to exclude the completed ops and remove the else
+                if (!ShouldRetryPolling(response, opIdsFromOperationReq.Count, completedOps))
                 {
-                    GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
-                    var response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, getOpsStatusRequest, resource);
+                    break;
+                }
+                else
+                {
+                    var excludedOps = ExcludeCompletedOperations(completedOps, opIdsFromOperationReq);
+                    GetOperationStatusContent pendingOpIds = new(excludedOps, Guid.NewGuid().ToString());
+                    response = await resource.GetVirtualMachineOperationStatusAsync(location, pendingOpIds);
+                }
 
-                    if (!ShouldRetryPolling(response, opIdsFromOperationReq.Count, completedOps))
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        var excludedOps = ExcludeCompletedOperations(completedOps, opIdsFromOperationReq);
-                        GetOperationStatusContent pendingOpIds = new(excludedOps, Guid.NewGuid().ToString());
-                        response = await ScheduledActionsOperations.TestGetOpsStatusAsync(location, pendingOpIds, resource);
-                    }
+                await Task.Delay(TimeSpan.FromSeconds(PollintIntervalInSeconds), cts.Token);
+            }
+        }
 
-                    int pollingIntervalInSeconds = random.Next(PollintIntervalLowerBoundInSeconds, PollintIntervalLowerBoundInSeconds);
-                    await Task.Delay(TimeSpan.FromSeconds(pollingIntervalInSeconds), cts.Token);
+        /// <summary>
+        /// This method excludes resources not processed in Scheduledactions due to a number of reasons like operation conflicts etc.
+        /// </summary>
+        /// <param name="results"></param>
+        /// <returns></returns>
+        public static HashSet<string?> ExcludeResourcesNotProcessed(IEnumerable<ResourceOperationResult> results)
+        {
+            var validOperationIds = new HashSet<string?>();
+            foreach (var result in results)
+            {
+                if (result.ErrorCode != null)
+                {
+                    Console.WriteLine($"VM with resourceId: {result.ResourceId} encountered the following error: errorCode {result.ErrorCode}, errorDetails: {result.ErrorDetails}");
+                }
+                else
+                {
+                    validOperationIds.Add(result.Operation.OperationId);
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Request failed with ErrorCode:{ex} and ErrorMessage: {ex.Message}");
-                throw;
-            }
+            return validOperationIds;
         }
     }
 }

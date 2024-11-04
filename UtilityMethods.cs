@@ -12,13 +12,24 @@ namespace ComputeScheduleSampleProject
         private static readonly int InitialWaitTimeBeforePollingInMilliseconds = 10000;
         private static readonly int OperationTimeoutInMinutes = 3;
 
-
+        /// <summary>
+        /// Generates a resource identifier for the subscriptionId
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="subscriptionId"></param>
+        /// <returns></returns>
         public static SubscriptionResource GetSubscriptionResource(ArmClient client, string subscriptionId)
         {
             ResourceIdentifier subscriptionResourceId = SubscriptionResource.CreateResourceIdentifier(subscriptionId);
             return client.GetSubscriptionResource(subscriptionResourceId);
         }
 
+
+        /// <summary>
+        /// Determine if the operation state is complete
+        /// </summary>
+        /// <param name="state"></param>
+        /// <returns></returns>
         public static bool IsOperationStateComplete(ScheduledActionOperationState? state)
         {
             return state != null &&
@@ -85,6 +96,27 @@ namespace ComputeScheduleSampleProject
             return originalOps;
         }
 
+        /// <summary>
+        /// This method excludes resources not processed in Scheduledactions due to a number of reasons like operation conflicts etc.
+        /// </summary>
+        /// <param name="results"></param>
+        /// <returns></returns>
+        public static HashSet<string?> ExcludeResourcesNotProcessed(IEnumerable<ResourceOperationResult> results)
+        {
+            var validOperationIds = new HashSet<string?>();
+            foreach (var result in results)
+            {
+                if (result.ErrorCode != null)
+                {
+                    Console.WriteLine($"VM with resourceId: {result.ResourceId} encountered the following error: errorCode {result.ErrorCode}, errorDetails: {result.ErrorDetails}");
+                }
+                else
+                {
+                    validOperationIds.Add(result.Operation.OperationId);
+                }
+            }
+            return validOperationIds;
+        }
 
         /// <summary>
         /// Polls the operation status for the operations that are in not yet in completed state
@@ -110,13 +142,7 @@ namespace ComputeScheduleSampleProject
             using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInMinutes));
             while (!cts.Token.IsCancellationRequested)
             {
-                // get successful operations
 
-                // get failed operations
-
-                // if completedops count != totalvmcount, retry the ones that the states are not terminal, because we still have unfinished ops
-
-                // update the opids in response to exclude the completed ops and remove the else
                 if (!ShouldRetryPolling(response, opIdsFromOperationReq.Count, completedOps))
                 {
                     break;
@@ -130,28 +156,6 @@ namespace ComputeScheduleSampleProject
 
                 await Task.Delay(TimeSpan.FromSeconds(PollintIntervalInSeconds), cts.Token);
             }
-        }
-
-        /// <summary>
-        /// This method excludes resources not processed in Scheduledactions due to a number of reasons like operation conflicts etc.
-        /// </summary>
-        /// <param name="results"></param>
-        /// <returns></returns>
-        public static HashSet<string?> ExcludeResourcesNotProcessed(IEnumerable<ResourceOperationResult> results)
-        {
-            var validOperationIds = new HashSet<string?>();
-            foreach (var result in results)
-            {
-                if (result.ErrorCode != null)
-                {
-                    Console.WriteLine($"VM with resourceId: {result.ResourceId} encountered the following error: errorCode {result.ErrorCode}, errorDetails: {result.ErrorDetails}");
-                }
-                else
-                {
-                    validOperationIds.Add(result.Operation.OperationId);
-                }
-            }
-            return validOperationIds;
         }
     }
 }

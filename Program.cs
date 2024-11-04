@@ -16,13 +16,14 @@ namespace ComputeScheduleSampleProject
         public static async Task Main(string[] args)
         {
             // Setup
-            // add comments on what these variables mean
+            // SubscriptionId: The subscription id under which the virtual machines are located
             const string subscriptionId = "d93f78f2-e878-40c2-9d5d-dcfdbb8042a0";
-            const int retryCount = 3;
-            const int retryWindowInMinutes = 60;
 
             Dictionary<string, ResourceOperationDetails> completedOperations = [];
+            // Credential: The Azure credential used to authenticate the request
             TokenCredential cred = new DefaultAzureCredential();
+
+            // Client: The Azure Resource Manager client used to interact with the Azure Resource Manager API
             ArmClient client = new(cred);
             var subscriptionResource = UtilityMethods.GetSubscriptionResource(client, subscriptionId);
 
@@ -32,12 +33,13 @@ namespace ComputeScheduleSampleProject
                 RetryPolicy = new UserRequestRetryPolicy()
                 {
                     // Number of times ScheduledActions should retry the operation in case of failures
-                    RetryCount = retryCount,
+                    RetryCount = 3,
                     // Time window in minutes within which ScheduledActions should retry the operation in case of failures
-                    RetryWindowInMinutes = retryWindowInMinutes
+                    RetryWindowInMinutes = 45
                 }
             };
 
+            // Execute type operation: Start operation on virtual machines
             await ScheduledActions_ExecuteTypeOperation_HappyPath(completedOperations, executionParams, subscriptionResource, subscriptionId);
         }
 
@@ -51,6 +53,7 @@ namespace ComputeScheduleSampleProject
         /// <returns></returns>
         private static async Task ScheduledActions_ExecuteTypeOperation_HappyPath(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, string subscriptionId)
         {
+            // Location: The location of the virtual machines
             const string location = "eastasia";
 
             // List of virtual machine resource identifiers to perform execute type operations on, in this case, we are using dummy VMs. Virtual Machines must all be under the same subscriptionid
@@ -67,9 +70,11 @@ namespace ComputeScheduleSampleProject
                 // CorrelationId: This is a unique identifier used internally to track and monitor operations in ScheduledActions
                 var correlationId = Guid.NewGuid().ToString();
 
+                // The request body for the executestart operation on virtual machines
                 var executeStartRequest = new ExecuteStartContent(retryPolicy, resources, correlationId);
 
                 StartResourceOperationResult? result = await subscriptionResource.ExecuteVirtualMachineStartAsync(location, executeStartRequest);
+
                 /// <summary>
                 /// Each operationId corresponds to a virtual machine operation in ScheduledActions. 
                 /// This method excludes resources that have not been processed in ScheduledActions due to a number of reasons 

@@ -8,7 +8,7 @@ namespace ComputeScheduleSampleProject
 {
     public static class UtilityMethods
     {
-        private static readonly int PollintIntervalInSeconds = 15;
+        private static readonly int PollingIntervalInSeconds = 15;
         private static readonly int InitialWaitTimeBeforePollingInMilliseconds = 10000;
         private static readonly int OperationTimeoutInMinutes = 3;
 
@@ -154,7 +154,7 @@ namespace ComputeScheduleSampleProject
                     response = await resource.GetVirtualMachineOperationStatusAsync(location, pendingOpIds);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(PollintIntervalInSeconds), cts.Token);
+                await Task.Delay(TimeSpan.FromSeconds(PollingIntervalInSeconds), cts.Token);
             }
         }
     }

@@ -8,9 +8,14 @@ namespace ComputeScheduleSampleProject
 {
     public static class UtilityMethods
     {
+        // Amount of time to wait between each polling request
         private static readonly int PollingIntervalInSeconds = 15;
-        private static readonly int InitialWaitTimeBeforePollingInMilliseconds = 10000;
-        private static readonly int OperationTimeoutInMinutes = 3;
+
+        // Amount of time to wait before polling requests start, this is because the p50 for compute operations is approximately 20 seconds
+        private static readonly int InitialWaitTimeBeforePollingInSeconds = 10;
+
+        // Timeout for polling operation status
+        private static readonly int OperationTimeoutInSeconds = 180;
 
         /// <summary>
         /// Generates a resource identifier for the subscriptionId
@@ -67,6 +72,7 @@ namespace ComputeScheduleSampleProject
                 }
             }
 
+            // CompletedOps.Count == TotalVmsCount means that all the operations have completed and there would be no need to retry polling
             if (completedOps.Count == totalVmsCount)
             {
                 shouldRetry = false;
@@ -83,17 +89,17 @@ namespace ComputeScheduleSampleProject
         /// <returns></returns>
         private static HashSet<string?> ExcludeCompletedOperations(Dictionary<string, ResourceOperationDetails> completedOps, HashSet<string?> allOps)
         {
-            var originalOps = new HashSet<string?>(allOps);
+            var incompleteOps = new HashSet<string?>(allOps);
 
             foreach (var op in allOps)
             {
                 if (op != null && completedOps.ContainsKey(op))
                 {
-                    originalOps.Remove(op);
+                    incompleteOps.Remove(op);
                 }
             }
-            Console.WriteLine(string.Join(", ", originalOps));
-            return originalOps;
+            Console.WriteLine(string.Join(", ", incompleteOps));
+            return incompleteOps;
         }
 
         /// <summary>
@@ -133,13 +139,13 @@ namespace ComputeScheduleSampleProject
         public static async Task PollOperationStatus(HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
         {
             // This value can be set to 30s since p50 for virtual machine operations in Azure is around 30 seconds
-            await Task.Delay(InitialWaitTimeBeforePollingInMilliseconds);
+            await Task.Delay(InitialWaitTimeBeforePollingInSeconds);
 
             GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
             GetOperationStatusResult? response = await resource.GetVirtualMachineOperationStatusAsync(location, getOpsStatusRequest);
 
             // Cancellation token source is used in this case to cancel the polling after a certain time
-            using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInMinutes));
+            using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInSeconds));
             while (!cts.Token.IsCancellationRequested)
             {
 
@@ -149,8 +155,8 @@ namespace ComputeScheduleSampleProject
                 }
                 else
                 {
-                    var excludedOps = ExcludeCompletedOperations(completedOps, opIdsFromOperationReq);
-                    GetOperationStatusContent pendingOpIds = new(excludedOps, Guid.NewGuid().ToString());
+                    var incompleteOperations = ExcludeCompletedOperations(completedOps, opIdsFromOperationReq);
+                    GetOperationStatusContent pendingOpIds = new(incompleteOperations, Guid.NewGuid().ToString());
                     response = await resource.GetVirtualMachineOperationStatusAsync(location, pendingOpIds);
                 }
 

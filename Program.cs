@@ -27,14 +27,14 @@ namespace ComputeScheduleSampleProject
             ArmClient client = new(cred);
             var subscriptionResource = UtilityMethods.GetSubscriptionResource(client, subscriptionId);
 
-            // Execution parameters for the scheduled action including the retry policy used by Scheduledactions to retry the operation in case of failures
+            // Execution parameters for the request including the retry policy used by Scheduledactions to retry the operation in case of failures
             var executionParams = new ScheduledActionExecutionParameterDetail()
             {
                 RetryPolicy = new UserRequestRetryPolicy()
                 {
-                    // Number of times ScheduledActions should retry the operation in case of failures
+                    // Number of times ScheduledActions should retry the operation in case of failures: Range 0-7
                     RetryCount = 3,
-                    // Time window in minutes within which ScheduledActions should retry the operation in case of failures
+                    // Time window in minutes within which ScheduledActions should retry the operation in case of failures: Range 5-120
                     RetryWindowInMinutes = 45
                 }
             };
@@ -101,7 +101,7 @@ namespace ComputeScheduleSampleProject
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Request failed with ErrorCode:{ex} and ErrorMessage: {ex.Message}");
+                Console.WriteLine($"Request failed with Exception:{ex.Message}");
                 throw;
             }
         }

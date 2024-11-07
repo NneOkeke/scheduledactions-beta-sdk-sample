@@ -15,7 +15,6 @@ namespace ComputeScheduleSampleProject
         /// </summary>
         public static async Task Main(string[] args)
         {
-            // Setup
             // SubscriptionId: The subscription id under which the virtual machines are located
             const string subscriptionId = "d93f78f2-e878-40c2-9d5d-dcfdbb8042a0";
 
@@ -34,7 +33,7 @@ namespace ComputeScheduleSampleProject
                 {
                     // Number of times ScheduledActions should retry the operation in case of failures: Range 0-7
                     RetryCount = 3,
-                    // Time window in minutes within which ScheduledActions should retry the operation in case of failures: Range 5-120
+                    // Time window in minutes within which ScheduledActions should retry the operation in case of failures: Range in minutes 5-120
                     RetryWindowInMinutes = 45
                 }
             };

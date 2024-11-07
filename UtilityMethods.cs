@@ -64,11 +64,11 @@ namespace ComputeScheduleSampleProject
                 {
                     completedOps.TryAdd(operationId, operation);
                     Console.WriteLine($"Operation {operationId} completed with state {operationState}");
-                }
 
-                if (operationError.ErrorCode != null)
-                {
-                    Console.WriteLine($"Operation {operationId} encountered the following error: errorCode {operationError.ErrorCode}, errorDetails: {operationError.ErrorDetails}");
+                    if (operationError != null)
+                    {
+                        Console.WriteLine($"Operation {operationId} encountered the following error: errorCode {operationError.ErrorCode}, errorDetails: {operationError.ErrorDetails}");
+                    }
                 }
             }
 
@@ -132,10 +132,8 @@ namespace ComputeScheduleSampleProject
         /// <param name="completedOps"> OperationIds of completed operations </param>
         /// <param name="location"> Location of the virtual machines from execute type operations </param>
         /// <param name="resource"> ARM subscription resource </param>
-        /// <returns></returns>
+        /// <returns></returns> 
 
-
-        // make this a task that returns the completed ops instead of the Task obj
         public static async Task PollOperationStatus(HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
         {
             // This value can be set to 30s since p50 for virtual machine operations in Azure is around 30 seconds

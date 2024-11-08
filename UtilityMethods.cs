@@ -11,8 +11,8 @@ namespace ComputeScheduleSampleProject
         // Amount of time to wait between each polling request
         private static readonly int PollingIntervalInSeconds = 15;
 
-        // Amount of time to wait before polling requests start, this is because the p50 for compute operations is approximately 20 seconds
-        private static readonly int InitialWaitTimeBeforePollingInSeconds = 10;
+        // Amount of time to wait before polling requests start, this is because the p50 for compute operations is approximately 2 minutes
+        private static readonly int InitialWaitTimeBeforePollingInSeconds = 30;
 
         // Timeout for polling operation status
         private static readonly int OperationTimeoutInSeconds = 180;
@@ -132,18 +132,17 @@ namespace ComputeScheduleSampleProject
         /// <param name="completedOps"> OperationIds of completed operations </param>
         /// <param name="location"> Location of the virtual machines from execute type operations </param>
         /// <param name="resource"> ARM subscription resource </param>
-        /// <returns></returns> 
-
+        /// <returns></returns>
+ 
         public static async Task PollOperationStatus(HashSet<string?> opIdsFromOperationReq, Dictionary<string, ResourceOperationDetails> completedOps, string location, SubscriptionResource resource)
         {
-            // This value can be set to 30s since p50 for virtual machine operations in Azure is around 30 seconds
             await Task.Delay(InitialWaitTimeBeforePollingInSeconds);
 
             GetOperationStatusContent getOpsStatusRequest = new(opIdsFromOperationReq, Guid.NewGuid().ToString());
             GetOperationStatusResult? response = await resource.GetVirtualMachineOperationStatusAsync(location, getOpsStatusRequest);
 
-            // Cancellation token source is used in this case to cancel the polling after a certain time
-            using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInSeconds));
+            // Cancellation token source is used in this case to cancel the polling operation after a certain time
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(OperationTimeoutInSeconds));
             while (!cts.Token.IsCancellationRequested)
             {
 

@@ -15,7 +15,7 @@ namespace ComputeScheduleSampleProject
         /// </summary>
         public static async Task Main(string[] args)
         {
-            // SubscriptionId: The subscription id under which the virtual machines are located
+            // SubscriptionId: The subscription id under which the virtual machines are located, in this case, we are using a dummy subscriptionId
             const string subscriptionId = "d93f78f2-e878-40c2-9d5d-dcfdbb8042a0";
 
             Dictionary<string, ResourceOperationDetails> completedOperations = [];
@@ -39,7 +39,7 @@ namespace ComputeScheduleSampleProject
             };
 
             // Execute type operation: Start operation on virtual machines
-            await ScheduledActions_ExecuteTypeOperation_HappyPath(completedOperations, executionParams, subscriptionResource, subscriptionId);
+            await ScheduledActions_ExecuteTypeOperation(completedOperations, executionParams, subscriptionResource, subscriptionId);
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace ComputeScheduleSampleProject
         /// <param name="subscriptionResource"></param>
         /// <param name="subscriptionId"></param>
         /// <returns></returns>
-        private static async Task ScheduledActions_ExecuteTypeOperation_HappyPath(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, string subscriptionId)
+        private static async Task ScheduledActions_ExecuteTypeOperation(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, string subscriptionId)
         {
             // Location: The location of the virtual machines
             const string location = "eastasia";

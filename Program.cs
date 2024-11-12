@@ -80,9 +80,17 @@ namespace ComputeScheduleSampleProject
                 /// like operation conflicts etc and passes only the valid operations that have passed validation checks to be polled.
                 /// </summary>
                 var validOperationIds = UtilityMethods.ExcludeResourcesNotProcessed(result.Results);
-
                 completedOperations.Clear();
-                await UtilityMethods.PollOperationStatus(validOperationIds, completedOperations, location, subscriptionResource);
+
+                if(validOperationIds.Count > 0)
+                {
+                    await UtilityMethods.PollOperationStatus(validOperationIds, completedOperations, location, subscriptionResource);
+                }
+                else
+                {
+                    Console.WriteLine("No valid operations to poll");
+                    return;
+                }
             }
             catch (RequestFailedException ex)
             {

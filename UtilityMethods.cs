@@ -15,7 +15,7 @@ namespace ComputeScheduleSampleProject
         private static readonly int InitialWaitTimeBeforePollingInSeconds = 30;
 
         // Timeout for polling operation status
-        private static readonly int OperationTimeoutInSeconds = 180;
+        private static readonly int OperationTimeoutInMinutes = 125;
 
         /// <summary>
         /// Generates a resource identifier for the subscriptionId
@@ -142,7 +142,7 @@ namespace ComputeScheduleSampleProject
             GetOperationStatusResult? response = await resource.GetVirtualMachineOperationStatusAsync(location, getOpsStatusRequest);
 
             // Cancellation token source is used in this case to cancel the polling operation after a certain time
-            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(OperationTimeoutInSeconds));
+            using CancellationTokenSource cts = new(TimeSpan.FromMinutes(OperationTimeoutInMinutes));
             while (!cts.Token.IsCancellationRequested)
             {
 

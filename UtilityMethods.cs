@@ -103,7 +103,8 @@ namespace ComputeScheduleSampleProject
         }
 
         /// <summary>
-        /// This method excludes resources not processed in Scheduledactions due to a number of reasons like operation conflicts etc.
+        /// This method excludes resources not processed in Scheduledactions due to a number of reasons like operation conflicts,
+        /// operations in a blocked state due to scenarios like outages in downstream services, internal outages etc.
         /// </summary>
         /// <param name="results"></param>
         /// <returns></returns>
@@ -115,6 +116,12 @@ namespace ComputeScheduleSampleProject
                 if (result.ErrorCode != null)
                 {
                     Console.WriteLine($"VM with resourceId: {result.ResourceId} encountered the following error: errorCode {result.ErrorCode}, errorDetails: {result.ErrorDetails}");
+                }
+                else if(result.Operation.State == ScheduledActionOperationState.Blocked)
+                {
+                    /// Operations on virtual machines are set to blocked state in Computeschedule when there is an ongoing outage internally or in downstream services.
+                    /// These operations could still be processed later as long as their due time for execution is not past deadline time + retrywindowinminutes
+                    Console.WriteLine($"Operation on VM with resourceId: {result.ResourceId} is currently blocked, operation may still complete");
                 }
                 else
                 {

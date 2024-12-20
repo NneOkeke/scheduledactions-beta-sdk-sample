@@ -52,6 +52,8 @@ namespace ComputeScheduleSampleProject
         /// <returns></returns>
         private static async Task ScheduledActions_ExecuteTypeOperation(Dictionary<string, ResourceOperationDetails> completedOperations, ScheduledActionExecutionParameterDetail retryPolicy, SubscriptionResource subscriptionResource, string subscriptionId)
         {
+            var blockedOperationsException = new HashSet<string> { "SchedulingOperationsBlockedException", "NonSchedulingOperationsBlockedException" };
+
             // Location: The location of the virtual machines
             const string location = "eastasia";
 
@@ -76,8 +78,9 @@ namespace ComputeScheduleSampleProject
 
                 /// <summary>
                 /// Each operationId corresponds to a virtual machine operation in ScheduledActions. 
-                /// This method excludes resources that have not been processed in ScheduledActions due to a number of reasons 
-                /// like operation conflicts etc and passes only the valid operations that have passed validation checks to be polled.
+                /// The method below excludes resources that have not been processed in ScheduledActions due to a number of reasons 
+                /// like operation conflicts, virtual machines not being found in an Azure location etc 
+                /// and returns only the valid operations that have passed validation checks to be polled.
                 /// </summary>
                 var validOperationIds = UtilityMethods.ExcludeResourcesNotProcessed(result.Results);
                 completedOperations.Clear();
@@ -101,9 +104,17 @@ namespace ComputeScheduleSampleProject
                 /// - Over 100 resourceids provided in request
                 /// - RetryPolicy.RetryCount value > 7
                 /// - RetryPolicy.RetryWindowInMinutes value > 120
+                /// COMPUTESCHEDULE BLOCKING ERRORS:
+                /// - Scheduling Operations Blocked due to an ongoing outage in downstream services
+                /// - Non-Scheduling Operations Blocked, eg VirtualMachinesGetOperationStatus operations, due to an ongoing outage in downstream services
                 /// </summary>
-                
                 Console.WriteLine($"Request failed with ErrorCode:{ex.ErrorCode} and ErrorMessage: {ex.Message}");
+
+                if(ex.ErrorCode != null && blockedOperationsException.Contains(ex.ErrorCode))
+                {
+                    /// Operation blocking on scheduling/non-scheduling actions can be due to scenarios like outages in downstream services.
+                    Console.WriteLine($"Operation Blocking is turned on, request may succeed later.");
+                }
                 throw;
             }
             catch (Exception ex)
